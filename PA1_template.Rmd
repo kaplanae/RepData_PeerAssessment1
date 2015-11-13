@@ -1,25 +1,86 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research Project 1"
+author: "Alex Kaplan"
+date: "October 15, 2015"
+output: html_document
 ---
 
+Rmarkdown file for Reproducible Research Project 1
 
-## Loading and preprocessing the data
+Load and Process the Data
 
+```{r, echo = TRUE}
+setwd("~/R/DataScience/RepResearch")
+library(RCurl)
+library(knitr)
+dataURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(dataURL, destfile ="activity.zip", method="curl")
+unzip("activity.zip")
+activity <- read.csv("activity.csv", header = TRUE)
+head(activity)
+str(activity)
+#Convert the Date field to Date format
+activity$date <- as.Date(as.character(activity$date), "%Y-%m-%d")
+```
 
+What is mean total number of activity taken per day?
 
-## What is mean total number of steps taken per day?
+```{r, echo = TRUE}
+dailySteps <- aggregate(steps ~ date, data= activity, sum)
+hist(dailySteps$steps, xlab = "Steps", ylab= "Frequency", main = "Step Histogram", breaks = 10)
+stepMean <- mean(dailySteps$steps, na.rm=TRUE)
+stepMean
+stepMedian<- median(dailySteps$steps, na.rm=TRUE)
+stepMedian
+```
 
+Mean is `r stepMean` and the Median is `r stepMedian`.
 
+Average Daily Activity pattern
+```{r, echo = TRUE}
+intervalSteps <- aggregate(steps ~ interval, data = activity, mean)
+plot(intervalSteps$interval,intervalSteps$steps,type="l", xlab= "Interval", ylab = "Average Steps", main= "Average Daily Steps by Interval")
+intervalSteps[which.max(intervalSteps$steps),]
+maxInterval <- intervalSteps[which.max(intervalSteps$steps),"interval"]
+```
+The 5 minute maximum interval is `r maxInterval`.
 
-## What is the average daily activity pattern?
+Imputing missing values
+```{r, echo = TRUE}
+blankRows <- sum(is.na(activity$steps))
+blankRows
+#substitute na's for mean from 5 minutes interval
+activityWMeans <- activity
+for (i in 1:nrow(activityWMeans)) {
+  if (is.na(activityWMeans$steps[i])) {
+    interval_value <- activityWMeans$interval[i]
+    steps_value <- intervalSteps[
+      intervalSteps$interval == interval_value,]
+    activityWMeans$steps[i] <- steps_value$steps
+  }
+}
+dailySteps2 <- aggregate(steps ~ date, data= activityWMeans, sum)
+hist(dailySteps2$steps, xlab = "Steps", ylab= "Frequency", main = "Step Histogram Replaced NAs", breaks = 10)
+stepMean2 <- mean(dailySteps2$steps, na.rm=TRUE)
+stepMean2
+stepMedian2<- median(dailySteps2$steps, na.rm=TRUE)
+stepMedian2
+```
+There are `r blankRows` rows with NA.
+The mean stayed the same, `r stepMean` and `r stepMean2`, but the median increased slightly `r stepMedian` and `r stepMedian2`.
 
+Differences in activity patterns between weekdays and weekends.
+```{r}
+install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+library(ggplot2)
+?weekdays()
+weekdays(activityWMeans$date[2000])
+weekdays(activityWMeans$date[2000])%in% c("Sunday","Saturday")
+activityWMeans$day <- weekdays(activityWMeans$date)
+activityWMeans$type<- ifelse (activityWMeans$day %in% c('Sunday','Saturday'), 
+       "Weekend", "Weekday")
+activityWMeans$type <- as.factor(activityWMeans$type)
+weekendSteps <- aggregate(steps ~ interval+type, data= activityWMeans, mean)
+qplot(interval, steps, data=weekendSteps, type ='l', geom=c("line"), xlab= "Interval", ylab= "Number of Steps")+facet_wrap(~type, ncol=1)
+```
 
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
